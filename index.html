@@ -1,0 +1,71 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Clipper — autorización TikTok</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 6vh auto; padding: 0 20px; color: #111; }
+  h1 { font-size: 20px; }
+  .box { background: #f4f4f5; border: 1px solid #d4d4d8; border-radius: 8px; padding: 12px; margin: 12px 0; word-break: break-all; font-family: monospace; font-size: 13px; }
+  .btn { background: #000; color: #fff; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; margin: 4px 4px 4px 0; }
+  .hint { color: #555; font-size: 13px; line-height: 1.5; }
+  .ok { color: #047857; font-weight: 600; }
+  .err { color: #b91c1c; font-weight: 600; }
+</style>
+<body>
+  <h1>Autorización de TikTok para Clipper</h1>
+  <p id="status" class="hint">Leyendo la respuesta de TikTok…</p>
+  <div id="result" style="display:none">
+    <p class="ok">TikTok respondió. Copia este enlace completo y pégalo en Clipper (pestaña Publicar en redes → TikTok → "Pegar enlace de autorización"):</p>
+    <div class="box" id="fullurl"></div>
+    <button class="btn" id="copyBtn">Copiar enlace completo</button>
+    <p class="hint">Si Clipper está abierto en el puerto 8765, también intento enviarle el código automáticamente.</p>
+  </div>
+  <div id="error" style="display:none">
+    <p class="err">TikTok no devolvió un código de autorización.</p>
+    <div class="box" id="errdetail"></div>
+  </div>
+<script>
+  (function() {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const state = params.get('state');
+    const error = params.get('error');
+    const errorDesc = params.get('error_description');
+    const fullUrl = window.location.href;
+    if (error) {
+      document.getElementById('status').textContent = 'TikTok rechazó la autorización.';
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('errdetail').textContent = error + (errorDesc ? ' — ' + errorDesc : '');
+      return;
+    }
+    if (!code || !state) {
+      document.getElementById('status').textContent = 'No se encontró código en la dirección. ¿Abriste esta página directamente?';
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('errdetail').textContent = 'Faltan los parámetros code y state.';
+      return;
+    }
+    document.getElementById('status').textContent = 'Código recibido correctamente.';
+    document.getElementById('result').style.display = 'block';
+    document.getElementById('fullurl').textContent = fullUrl;
+    document.getElementById('copyBtn').onclick = function() {
+      navigator.clipboard.writeText(fullUrl).then(function() {
+        document.getElementById('copyBtn').textContent = '¡Copiado!';
+      }).catch(function() {
+        // fallback: select text
+        const r = document.createRange();
+        r.selectNode(document.getElementById('fullurl'));
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(r);
+      });
+    };
+    // Try to redirect to local Clipper (default port 8765)
+    try {
+      const localUrl = 'http://127.0.0.1:8765/oauth/tiktok' + window.location.search;
+      // Only attempt if we think Clipper is running; use a hidden image probe
+      const img = new Image();
+      img.onload = function() { window.location.href = localUrl; };
+      img.onerror = function() { /* Clipper not running on 8765, user will paste manually */ };
+      img.src = 'http://127.0.0.1:8765/favicon.ico?' + Date.now();
+    } catch (e) {}
+  })();
+</script>
+</body>
